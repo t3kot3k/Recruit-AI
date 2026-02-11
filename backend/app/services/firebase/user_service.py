@@ -28,7 +28,7 @@ class UserService:
             display_name=data.get("displayName"),
             photo_url=data.get("photoURL"),
             plan=data.get("plan", "free"),
-            credits=data.get("credits", 0),
+            free_uses_remaining=data.get("freeUsesRemaining", 3),
             stripe_customer_id=data.get("stripeCustomerId"),
             created_at=data.get("createdAt"),
             consent_terms=data.get("consentTerms", True),
@@ -67,6 +67,20 @@ class UserService:
             "updatedAt": datetime.utcnow(),
         })
 
+    async def decrement_free_uses(self, uid: str) -> int:
+        """Decrement free_uses_remaining by 1. Returns new value."""
+        doc_ref = self.db.collection(self.COLLECTION).document(uid)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return 0
+        current = doc.to_dict().get("freeUsesRemaining", 0)
+        new_value = max(0, current - 1)
+        doc_ref.update({
+            "freeUsesRemaining": new_value,
+            "updatedAt": datetime.utcnow(),
+        })
+        return new_value
+
     async def delete_user_data(self, uid: str) -> None:
         """
         Delete all user data from Firestore (GDPR compliance).
@@ -101,7 +115,7 @@ class UserService:
                 display_name=data.get("displayName"),
                 photo_url=data.get("photoURL"),
                 plan=data.get("plan", "free"),
-                credits=data.get("credits", 0),
+                free_uses_remaining=data.get("freeUsesRemaining", 3),
                 stripe_customer_id=data.get("stripeCustomerId"),
                 created_at=data.get("createdAt"),
                 consent_terms=data.get("consentTerms", True),

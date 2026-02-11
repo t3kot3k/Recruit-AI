@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security import get_current_user, CurrentUser
 from app.core.firebase import delete_user
-from app.services.firebase import user_service, credit_service
+from app.services.firebase import user_service
 from app.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter()
@@ -26,7 +26,7 @@ async def get_current_user_profile(
         display_name=user.display_name,
         photo_url=user.photo_url,
         plan=user.plan,
-        credits=user.credits,
+        free_uses_remaining=user.free_uses_remaining,
         created_at=user.created_at,
     )
 
@@ -51,18 +51,9 @@ async def update_current_user_profile(
         display_name=user.display_name,
         photo_url=user.photo_url,
         plan=user.plan,
-        credits=user.credits,
+        free_uses_remaining=user.free_uses_remaining,
         created_at=user.created_at,
     )
-
-
-@router.post("/initialize-credits", status_code=status.HTTP_200_OK)
-async def initialize_user_credits(
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    """Grant welcome credits to a new user. Idempotent."""
-    balance = await credit_service.grant_welcome_credits(current_user.uid)
-    return {"credits": balance}
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

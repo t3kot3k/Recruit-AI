@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
 from app.core.security import get_current_user, CurrentUser
-from app.services.firebase import user_service, usage_service, credit_service
+from app.services.firebase import user_service
 from app.services.stripe import stripe_service
 from app.schemas.subscription import (
     SubscriptionStatus,
-    UsageLimits,
     CheckoutSessionRequest,
     CheckoutSessionResponse,
     PortalSessionResponse,
-    MonetizationStatus,
+    PlanStatus,
 )
 import stripe
 
@@ -34,23 +33,11 @@ async def get_subscription_status(
     )
 
 
-@router.get("/usage", response_model=UsageLimits)
-async def get_usage_limits(
+@router.get("/plan-status", response_model=PlanStatus)
+async def get_plan_status(
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Get the current user's usage limits and current usage."""
-    user = await user_service.get_user(current_user.uid)
-    plan = user.plan if user else "free"
-
-    usage = await usage_service.get_usage(current_user.uid, plan)
-    return usage
-
-
-@router.get("/monetization-status", response_model=MonetizationStatus)
-async def get_monetization_status(
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    """Get combined subscription + credit status."""
+    """Get combined plan + free uses status for the frontend."""
     user = await user_service.get_user(current_user.uid)
 
     if not user:
@@ -59,10 +46,10 @@ async def get_monetization_status(
             detail="User not found",
         )
 
-    return MonetizationStatus(
+    return PlanStatus(
         plan=user.plan,
         subscription_status="active" if user.plan == "premium" else "none",
-        credits=user.credits,
+        free_uses_remaining=user.free_uses_remaining,
     )
 
 

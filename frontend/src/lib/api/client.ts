@@ -153,8 +153,8 @@ export const subscriptionApi = {
   getStatus: () =>
     request<SubscriptionStatus>("/subscriptions/status"),
 
-  getUsage: () =>
-    request<UsageLimits>("/subscriptions/usage"),
+  getPlanStatus: () =>
+    request<PlanStatus>("/subscriptions/plan-status"),
 
   createCheckout: (successUrl: string, cancelUrl: string) =>
     request<CheckoutSessionResponse>("/subscriptions/checkout", {
@@ -178,7 +178,7 @@ interface UserProfile {
   display_name: string | null;
   photo_url: string | null;
   plan: "free" | "premium";
-  credits: number;
+  free_uses_remaining: number;
   created_at: string | null;
 }
 
@@ -252,14 +252,12 @@ interface SubscriptionStatus {
   cancel_at_period_end: boolean;
 }
 
-interface UsageLimits {
-  cv_analyses_limit: number;
-  cv_analyses_used: number;
-  cover_letters_limit: number;
-  cover_letters_used: number;
-  photo_enhancements_limit: number;
-  photo_enhancements_used: number;
-  reset_date: string;
+interface PlanStatus {
+  plan: "free" | "premium";
+  subscription_status: "active" | "canceled" | "past_due" | "unpaid" | "trialing" | "none";
+  free_uses_remaining: number;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
 }
 
 interface CheckoutSessionResponse {
@@ -270,99 +268,6 @@ interface CheckoutSessionResponse {
 interface PortalSessionResponse {
   portal_url: string;
 }
-
-// --- Credit System Types ---
-
-type ActionType =
-  | "ats_cv_analysis"
-  | "cv_optimization"
-  | "cv_download"
-  | "cv_regeneration"
-  | "cover_letter"
-  | "ai_headshot"
-  | "send_cv_email"
-  | "email_tracking";
-
-type CreditPackId = "pack_5" | "pack_15" | "pack_40";
-
-interface CreditBalance {
-  balance: number;
-  plan: "free" | "premium";
-  is_premium: boolean;
-}
-
-interface ActionCheckResponse {
-  allowed: boolean;
-  reason: string;
-  credits_required: number;
-  credits_remaining: number;
-  covered_by_pro: boolean;
-}
-
-interface CreditPurchaseResponse {
-  checkout_url: string;
-  session_id: string;
-}
-
-interface CreditTransaction {
-  id: string;
-  action: ActionType | null;
-  credits_delta: number;
-  balance_after: number;
-  description: string;
-  source: "action" | "purchase" | "welcome_bonus" | "admin_adjustment";
-  stripe_session_id: string | null;
-  created_at: string;
-}
-
-interface CreditHistoryResponse {
-  transactions: CreditTransaction[];
-  total_count: number;
-}
-
-interface MonetizationStatus {
-  plan: "free" | "premium";
-  subscription_status: string;
-  credits: number;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-}
-
-// Credit endpoints
-export const creditsApi = {
-  getBalance: () =>
-    request<CreditBalance>("/credits/balance"),
-
-  checkAction: (action: ActionType) =>
-    request<ActionCheckResponse>("/credits/check-action", {
-      method: "POST",
-      body: JSON.stringify({ action }),
-    }),
-
-  purchase: (packId: CreditPackId, successUrl: string, cancelUrl: string) =>
-    request<CreditPurchaseResponse>("/credits/purchase", {
-      method: "POST",
-      body: JSON.stringify({
-        pack_id: packId,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-      }),
-    }),
-
-  getHistory: (limit = 50, offset = 0) =>
-    request<CreditHistoryResponse>(`/credits/history?limit=${limit}&offset=${offset}`),
-
-  initializeWelcomeCredits: () =>
-    request<{ credits: number }>("/users/initialize-credits", {
-      method: "POST",
-    }),
-};
-
-// Monetization status (combined endpoint)
-export const monetizationApi = {
-  getStatus: () =>
-    request<MonetizationStatus>("/subscriptions/monetization-status"),
-};
 
 export { ApiError };
 export type {
@@ -375,13 +280,5 @@ export type {
   CoverLetterResponse,
   CoverLetterListItem,
   SubscriptionStatus,
-  UsageLimits,
-  ActionType,
-  CreditPackId,
-  CreditBalance,
-  ActionCheckResponse,
-  CreditPurchaseResponse,
-  CreditTransaction,
-  CreditHistoryResponse,
-  MonetizationStatus,
+  PlanStatus,
 };

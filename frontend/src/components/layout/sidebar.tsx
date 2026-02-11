@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
-import { useCredits } from "@/contexts/credits-context";
 
 const navItems = [
   { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
@@ -16,8 +15,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, profile, signOut } = useAuth();
-  const { credits, isPremium } = useCredits();
+  const { user, profile, isPremium, freeUsesRemaining, signOut } = useAuth();
 
   const getInitials = () => {
     if (profile?.displayName) {
@@ -105,15 +103,13 @@ export function Sidebar() {
             <p className="text-sm font-bold truncate">
               {profile?.displayName || user?.email?.split("@")[0] || "User"}
             </p>
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs text-[#4d6599] truncate">
-                {isPremium ? "Pro" : "Free"}
-              </p>
-              <span className="text-xs text-[#4d6599]">|</span>
-              <p className="text-xs font-semibold text-primary">
-                {credits} credit{credits !== 1 ? "s" : ""}
-              </p>
-            </div>
+            <p className="text-xs text-[#4d6599] truncate">
+              {isPremium ? (
+                <span className="font-semibold text-primary">Pro</span>
+              ) : (
+                <>Free &middot; {freeUsesRemaining} use{freeUsesRemaining !== 1 ? "s" : ""} left</>
+              )}
+            </p>
           </div>
           <button
             onClick={() => signOut()}

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import users, cv, cover_letter, subscription, credits
+from .endpoints import users, cv, cover_letter, subscription
 
 api_router = APIRouter()
 
@@ -25,10 +25,4 @@ api_router.include_router(
     subscription.router,
     prefix="/subscriptions",
     tags=["subscriptions"],
-)
-
-api_router.include_router(
-    credits.router,
-    prefix="/credits",
-    tags=["credits"],
 )

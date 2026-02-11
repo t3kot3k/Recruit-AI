@@ -30,13 +30,8 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_ID_PREMIUM: str = ""
 
-    # Stripe Credit Packs
-    STRIPE_PRICE_ID_CREDITS_5: str = ""
-    STRIPE_PRICE_ID_CREDITS_15: str = ""
-    STRIPE_PRICE_ID_CREDITS_40: str = ""
-
-    # Credits
-    WELCOME_CREDITS: int = 3
+    # Freemium limits
+    FREE_AI_USES: int = 3
 
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100

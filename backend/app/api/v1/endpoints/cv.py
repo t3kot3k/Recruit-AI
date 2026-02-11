@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from typing import Optional, Union, List
 from app.core.security import get_current_user, get_optional_user, CurrentUser
-from app.services.firebase import user_service, cv_service, credit_service
-from app.schemas.credit import ActionType
+from app.services.firebase import user_service, cv_service
 from app.services.ai import analyze_cv
 from app.utils.document_parser import extract_text_from_file, validate_file
 from app.schemas.cv import (
@@ -25,6 +24,7 @@ async def analyze_cv_endpoint(
 
     For authenticated users: Returns full analysis and saves to history.
     For unauthenticated users: Returns limited preview.
+    ATS analysis is always free — no usage gate.
     """
     # Read file content
     file_content = await file.read()
@@ -36,24 +36,6 @@ async def analyze_cv_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error,
         )
-
-    # Check credits/subscription for authenticated users
-    if current_user:
-        user = await user_service.get_user(current_user.uid)
-        plan = user.plan if user else "free"
-
-        auth_result = await credit_service.authorize_action(
-            current_user.uid, ActionType.ATS_CV_ANALYSIS, plan
-        )
-        if not auth_result["allowed"]:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail={
-                    "message": "Insufficient credits. Purchase credits or upgrade to Pro.",
-                    "credits_required": auth_result["credits_required"],
-                    "credits_remaining": auth_result["credits_remaining"],
-                },
-            )
 
     # Extract text from CV
     try:

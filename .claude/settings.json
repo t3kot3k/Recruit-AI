@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del \"d:\\\\PROJET\\\\Recruit-AI\\\\backend\\\\app\\\\api\\\\v1\\\\endpoints\\\\credits.py\")"
+    ]
+  }
+}

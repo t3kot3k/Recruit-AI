@@ -6,8 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useCreditGate } from "@/hooks/use-credit-gate";
-import { PaywallModal } from "@/components/modals/paywall-modal";
+import { useAuth } from "@/contexts/auth-context";
+import { subscriptionApi } from "@/lib/api/client";
 
 const tones = [
   { id: "classic", label: "Classic" },
@@ -20,6 +20,8 @@ export default function CVToolsPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [selectedTone, setSelectedTone] = useState("classic");
   const [isDragging, setIsDragging] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
   const [coverLetter, setCoverLetter] = useState(`Dear Hiring Manager,
 
 I am writing to express my enthusiastic interest in the [Role Name] position at [Company Name], as advertised. With a strong background in [Your Field] and a proven track record of [Key Achievement], I am confident that my skills align perfectly with the requirements of your team.
@@ -33,7 +35,7 @@ I am particularly impressed by [Company Name]'s commitment to [Company Value or 
 Best regards,
 [Your Name]`);
 
-  const { showPaywall, paywallProps, closePaywall, gateAction } = useCreditGate();
+  const { isPremium, freeUsesRemaining } = useAuth();
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -50,17 +52,31 @@ Best regards,
   };
 
   const handleOptimize = () => {
-    gateAction("ats_cv_analysis", "ATS CV Analysis", () => {
-      // TODO: call cvApi.analyze() here
-      console.log("Proceeding with CV analysis...");
-    });
+    // ATS analysis is always free — no gate needed
+    // TODO: call cvApi.analyze() here
+    console.log("Proceeding with CV analysis...");
   };
 
   const handleGenerateLetter = () => {
-    gateAction("cover_letter", "Cover Letter Generation", () => {
-      // TODO: call coverLetterApi.generate() here
-      console.log("Proceeding with cover letter generation...");
-    });
+    if (!isPremium && freeUsesRemaining <= 0) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    // TODO: call coverLetterApi.generate() here
+    console.log("Proceeding with cover letter generation...");
+  };
+
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const response = await subscriptionApi.createCheckout(
+        `${window.location.origin}/dashboard/cv-tools?subscription=success`,
+        window.location.href
+      );
+      window.location.href = response.checkout_url;
+    } catch {
+      setSubscribing(false);
+    }
   };
 
   return (
@@ -279,12 +295,59 @@ Best regards,
         </Card>
       </div>
 
-      {/* Paywall Modal */}
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={closePaywall}
-        {...paywallProps}
-      />
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-[#1c2231] rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center space-y-4">
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-primary text-3xl">
+                  workspace_premium
+                </span>
+              </div>
+              <h3 className="text-xl font-bold">Upgrade to Pro</h3>
+              <p className="text-sm text-gray-500">
+                You&apos;ve used all your free AI uses. Upgrade to Pro for unlimited access to all AI features.
+              </p>
+              <p className="text-3xl font-black">
+                $19<span className="text-base font-normal text-gray-400">/month</span>
+              </p>
+              <ul className="text-sm text-left space-y-2">
+                {[
+                  "Unlimited CV optimization",
+                  "Unlimited cover letter generation",
+                  "Unlimited AI headshots",
+                  "Cancel anytime",
+                ].map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-green-500 text-sm">
+                      check_circle
+                    </span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setShowUpgradeModal(false)}
+                >
+                  Maybe Later
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSubscribe}
+                  disabled={subscribing}
+                  isLoading={subscribing}
+                >
+                  Go Pro
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

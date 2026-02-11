@@ -15,10 +15,10 @@ from .cover_letter import (
 )
 from .subscription import (
     SubscriptionStatus,
-    UsageLimits,
     CheckoutSessionRequest,
     CheckoutSessionResponse,
     PortalSessionResponse,
+    PlanStatus,
 )
 
 __all__ = [
@@ -40,8 +40,8 @@ __all__ = [
     "CoverLetterListItem",
     # Subscription
     "SubscriptionStatus",
-    "UsageLimits",
     "CheckoutSessionRequest",
     "CheckoutSessionResponse",
     "PortalSessionResponse",
+    "PlanStatus",
 ]

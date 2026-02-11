@@ -16,5 +16,5 @@ export type {
   CoverLetterResponse,
   CoverLetterListItem,
   SubscriptionStatus,
-  UsageLimits,
+  PlanStatus,
 } from "./client";

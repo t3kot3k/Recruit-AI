@@ -12,17 +12,6 @@ class SubscriptionStatus(BaseModel):
     cancel_at_period_end: bool = False
 
 
-class UsageLimits(BaseModel):
-    """Monthly usage limits and current usage."""
-    cv_analyses_limit: int
-    cv_analyses_used: int
-    cover_letters_limit: int
-    cover_letters_used: int
-    photo_enhancements_limit: int
-    photo_enhancements_used: int
-    reset_date: datetime
-
-
 class CheckoutSessionRequest(BaseModel):
     """Request to create a Stripe checkout session."""
     success_url: str
@@ -40,10 +29,10 @@ class PortalSessionResponse(BaseModel):
     portal_url: str
 
 
-class MonetizationStatus(BaseModel):
-    """Combined subscription + credit status for the frontend."""
+class PlanStatus(BaseModel):
+    """Combined subscription + free uses status for the frontend."""
     plan: Literal["free", "premium"]
     subscription_status: Literal["active", "canceled", "past_due", "unpaid", "trialing", "none"] = "none"
-    credits: int
+    free_uses_remaining: int = 3
     current_period_end: Optional[datetime] = None
     cancel_at_period_end: bool = False
