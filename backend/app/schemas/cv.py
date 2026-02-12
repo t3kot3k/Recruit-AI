@@ -49,6 +49,35 @@ class CVAnalysisPreview(BaseModel):
     upgrade_message: str = "Create an account for the full analysis with all keywords, detailed section feedback, and personalized improvement tips."
 
 
+class OptimizedCVSection(BaseModel):
+    """A section entry in the optimized CV (experience or education)."""
+    title: str
+    organization: str = ""
+    period: str = ""
+    bullets: list[str] = []
+    details: Optional[str] = None
+
+
+class OptimizedCV(BaseModel):
+    """Complete optimized CV output from AI."""
+    contact_name: str = ""
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_location: Optional[str] = None
+    contact_linkedin: Optional[str] = None
+    summary: str = ""
+    experience: list[OptimizedCVSection] = []
+    education: list[OptimizedCVSection] = []
+    skills: list[str] = []
+    certifications: list[str] = []
+    estimated_score: int = Field(0, ge=0, le=100)
+
+
+class CVExportRequest(BaseModel):
+    """Request schema for exporting optimized CV to PDF."""
+    template: str = Field("classic", pattern="^(minimalist|executive|classic)$")
+
+
 class CVUploadResponse(BaseModel):
     """Response after uploading a CV."""
     file_id: str

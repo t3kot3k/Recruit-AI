@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
 import { userApi, subscriptionApi } from "@/lib/api/client";
+import { resetPassword } from "@/lib/firebase/auth";
 
 export default function SettingsPage() {
   const { user, profile, isPremium, freeUsesRemaining, signOut } = useAuth();
@@ -16,6 +17,8 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [managingPortal, setManagingPortal] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [passwordResetError, setPasswordResetError] = useState("");
 
   useEffect(() => {
     setDisplayName(profile?.displayName || "");
@@ -52,6 +55,18 @@ export default function SettingsPage() {
       window.location.href = response.portal_url;
     } catch {
       setManagingPortal(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.email) return;
+    setPasswordResetSent(false);
+    setPasswordResetError("");
+    try {
+      await resetPassword(user.email);
+      setPasswordResetSent(true);
+    } catch {
+      setPasswordResetError("Failed to send reset email. Please try again.");
     }
   };
 
@@ -218,10 +233,25 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button variant="secondary">
+            <p className="text-sm text-gray-500">
+              We&apos;ll send a password reset link to <strong>{user?.email}</strong>.
+            </p>
+            <Button variant="secondary" onClick={handleChangePassword}>
               <span className="material-symbols-outlined text-sm">lock</span>
-              Change Password
+              Send Reset Link
             </Button>
+            {passwordResetSent && (
+              <p className="text-sm text-green-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                Reset link sent! Check your inbox.
+              </p>
+            )}
+            {passwordResetError && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">error</span>
+                {passwordResetError}
+              </p>
+            )}
           </CardContent>
         </Card>
 

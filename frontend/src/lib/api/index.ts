@@ -12,6 +12,8 @@ export type {
   CVAnalysisPreview,
   KeywordMatch,
   CVSection,
+  OptimizedCV,
+  OptimizedCVSection,
   CoverLetterRequest,
   CoverLetterResponse,
   CoverLetterListItem,

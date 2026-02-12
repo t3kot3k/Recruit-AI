@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { photoApi, subscriptionApi } from "@/lib/api/client";
 
 const backgrounds = [
   { id: "original", label: "Original", icon: "image" },
@@ -14,10 +16,19 @@ const backgrounds = [
 ];
 
 export default function PhotoPage() {
+  const { isPremium, freeUsesRemaining } = useAuth();
+
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedBackground, setSelectedBackground] = useState("blur");
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  // Upgrade modal
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -31,16 +42,68 @@ export default function PhotoPage() {
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files?.[0];
     if (droppedFile && droppedFile.type.startsWith("image/")) {
-      setFile(droppedFile);
+      handleFileSelect(droppedFile);
     }
+  };
+
+  const handleFileSelect = (f: File) => {
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    setResultUrl(null);
+    setError("");
   };
 
   const handleEnhance = async () => {
     if (!file) return;
+
+    if (!isPremium && freeUsesRemaining <= 0) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    setError("");
     setIsProcessing(true);
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    setIsProcessing(false);
+    try {
+      const blob = await photoApi.enhance(file, selectedBackground);
+      const url = URL.createObjectURL(blob);
+      setResultUrl(url);
+    } catch (err) {
+      if (err instanceof Error && "status" in err && (err as { status: number }).status === 402) {
+        setShowUpgradeModal(true);
+      } else {
+        setError("Failed to enhance photo. Please try a different image.");
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!resultUrl) return;
+    const a = document.createElement("a");
+    a.href = resultUrl;
+    a.download = "enhanced_photo.jpg";
+    a.click();
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setPreviewUrl(null);
+    setResultUrl(null);
+    setError("");
+  };
+
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const response = await subscriptionApi.createCheckout(
+        `${window.location.origin}/dashboard/photo?subscription=success`,
+        window.location.href
+      );
+      window.location.href = response.checkout_url;
+    } catch {
+      setSubscribing(false);
+    }
   };
 
   return (
@@ -48,10 +111,10 @@ export default function PhotoPage() {
       {/* Page Heading */}
       <div className="space-y-1">
         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-          AI Photo Enhancement
+          Photo Studio
         </h2>
         <p className="text-gray-500 dark:text-gray-400">
-          Transform your casual photos into professional LinkedIn-ready headshots.
+          Transform your photos into professional LinkedIn-ready headshots.
         </p>
       </div>
 
@@ -81,21 +144,24 @@ export default function PhotoPage() {
               <input
                 id="photo-input"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileSelect(f);
+                }}
               />
-              {file ? (
+              {previewUrl ? (
                 <div className="text-center">
                   <div className="w-32 h-32 mx-auto rounded-full bg-gray-200 mb-4 overflow-hidden">
                     <img
-                      src={URL.createObjectURL(file)}
+                      src={previewUrl}
                       alt="Preview"
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <p className="font-semibold text-green-600 dark:text-green-400">
-                    {file.name}
+                    {file?.name}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Click to change photo</p>
                 </div>
@@ -127,32 +193,35 @@ export default function PhotoPage() {
                         : "border-gray-200 dark:border-gray-700 hover:border-primary/50"
                     )}
                   >
-                    <span className="material-symbols-outlined text-2xl">
-                      {bg.icon}
-                    </span>
+                    <span className="material-symbols-outlined text-2xl">{bg.icon}</span>
                     <span className="text-xs font-medium">{bg.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">error</span>
+                {error}
+              </p>
+            )}
+
             <Button
               className="w-full"
               disabled={!file || isProcessing}
               onClick={handleEnhance}
+              isLoading={isProcessing}
             >
-              {isProcessing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined">auto_fix_high</span>
-                  Enhance Photo
-                </>
-              )}
+              <span className="material-symbols-outlined">auto_fix_high</span>
+              Enhance Photo
             </Button>
+
+            {!isPremium && (
+              <p className="text-xs text-center text-gray-400">
+                {freeUsesRemaining} free AI use{freeUsesRemaining !== 1 ? "s" : ""} remaining
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -162,45 +231,85 @@ export default function PhotoPage() {
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">compare</span>
-                Preview
+                {resultUrl ? "Enhanced Result" : "Preview"}
               </span>
-              <Badge variant="success">LinkedIn Ready</Badge>
+              {resultUrl && <Badge variant="success">LinkedIn Ready</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl flex items-center justify-center">
-              {file ? (
+            <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl flex items-center justify-center overflow-hidden">
+              {isProcessing ? (
+                <div className="text-center space-y-3">
+                  <div className="animate-spin h-10 w-10 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+                  <p className="text-sm text-gray-500">Enhancing your photo...</p>
+                  <p className="text-xs text-gray-400">This may take a moment</p>
+                </div>
+              ) : resultUrl ? (
+                <img
+                  src={resultUrl}
+                  alt="Enhanced"
+                  className="w-full h-full object-contain"
+                />
+              ) : previewUrl ? (
                 <div className="w-3/4 aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-white dark:border-gray-700">
                   <img
-                    src={URL.createObjectURL(file)}
-                    alt="Enhanced preview"
-                    className="w-full h-full object-cover"
+                    src={previewUrl}
+                    alt="Original preview"
+                    className="w-full h-full object-cover opacity-60"
                   />
                 </div>
               ) : (
                 <div className="text-center text-gray-400">
-                  <span className="material-symbols-outlined text-6xl mb-4">
-                    person
-                  </span>
+                  <span className="material-symbols-outlined text-6xl mb-4">person</span>
                   <p className="text-sm">Upload a photo to see preview</p>
                 </div>
               )}
             </div>
-            {file && (
+            {(resultUrl || previewUrl) && (
               <div className="mt-6 flex gap-3">
-                <Button variant="secondary" className="flex-1">
+                <Button variant="secondary" className="flex-1" onClick={handleReset}>
                   <span className="material-symbols-outlined text-sm">restart_alt</span>
                   Reset
                 </Button>
-                <Button className="flex-1">
-                  <span className="material-symbols-outlined text-sm">download</span>
-                  Download
-                </Button>
+                {resultUrl && (
+                  <Button className="flex-1" onClick={handleDownload}>
+                    <span className="material-symbols-outlined text-sm">download</span>
+                    Download
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-[#1c2231] rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center space-y-4">
+              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-primary text-3xl">workspace_premium</span>
+              </div>
+              <h3 className="text-xl font-bold">Upgrade to Pro</h3>
+              <p className="text-sm text-gray-500">
+                You&apos;ve used all your free AI uses. Upgrade to Pro for unlimited photo enhancements.
+              </p>
+              <p className="text-3xl font-black">
+                $19<span className="text-base font-normal text-gray-400">/month</span>
+              </p>
+              <div className="flex gap-3 pt-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setShowUpgradeModal(false)}>
+                  Maybe Later
+                </Button>
+                <Button className="flex-1" onClick={handleSubscribe} disabled={subscribing} isLoading={subscribing}>
+                  Go Pro
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

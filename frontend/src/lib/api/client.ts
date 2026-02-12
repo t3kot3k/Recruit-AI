@@ -82,6 +82,9 @@ export const userApi = {
     request<void>("/users/me", {
       method: "DELETE",
     }),
+
+  getStats: () =>
+    request<UserStats>("/users/me/stats"),
 };
 
 // CV endpoints
@@ -108,6 +111,33 @@ export const cvApi = {
       body: formData,
       authenticated: false,
     });
+  },
+
+  optimize: (file: File, jobDescription: string, analysisId?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("job_description", jobDescription);
+    if (analysisId) formData.append("analysis_id", analysisId);
+
+    return request<OptimizedCV>("/cv/optimize", {
+      method: "POST",
+      body: formData,
+      authenticated: true,
+    });
+  },
+
+  exportPdf: async (cv: OptimizedCV, template: string = "classic"): Promise<Blob> => {
+    const token = await getIdToken();
+    const response = await fetch(`${API_BASE_URL}/cv/export`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ...cv, template }),
+    });
+    if (!response.ok) throw new ApiError("Export failed", response.status);
+    return response.blob();
   },
 
   getAnalyses: (limit = 10) =>
@@ -148,6 +178,62 @@ export const coverLetterApi = {
     }),
 };
 
+// Application endpoints
+export const applicationApi = {
+  create: (data: ApplicationCreate) =>
+    request<ApplicationResponse>("/applications/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getAll: (limit = 50) =>
+    request<ApplicationResponse[]>(`/applications/?limit=${limit}`),
+
+  get: (id: string) =>
+    request<ApplicationResponse>(`/applications/${id}`),
+
+  update: (id: string, data: Partial<ApplicationCreate>) =>
+    request<ApplicationResponse>(`/applications/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    request<void>(`/applications/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Photo endpoints
+export const photoApi = {
+  enhance: async (
+    file: File,
+    background: string = "blur",
+    brightness: number = 1.1,
+    contrast: number = 1.1,
+    sharpness: number = 1.2,
+  ): Promise<Blob> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("background", background);
+    formData.append("brightness", brightness.toString());
+    formData.append("contrast", contrast.toString());
+    formData.append("sharpness", sharpness.toString());
+
+    const token = await getIdToken();
+    const response = await fetch(`${API_BASE_URL}/photos/enhance`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new ApiError(data?.detail || "Enhancement failed", response.status, data);
+    }
+    return response.blob();
+  },
+};
+
 // Subscription endpoints
 export const subscriptionApi = {
   getStatus: () =>
@@ -172,6 +258,22 @@ export const subscriptionApi = {
 };
 
 // Types
+interface CompletenessStatus {
+  has_cv: boolean;
+  has_photo: boolean;
+  has_letter: boolean;
+  has_application: boolean;
+}
+
+interface UserStats {
+  cv_count: number;
+  letter_count: number;
+  photo_count: number;
+  application_count: number;
+  latest_cv_score: number | null;
+  completeness: CompletenessStatus;
+}
+
 interface UserProfile {
   uid: string;
   email: string | null;
@@ -244,6 +346,54 @@ interface CoverLetterListItem {
   created_at: string;
 }
 
+interface OptimizedCVSection {
+  title: string;
+  organization: string;
+  period: string;
+  bullets: string[];
+  details: string | null;
+}
+
+interface OptimizedCV {
+  contact_name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  contact_location: string | null;
+  contact_linkedin: string | null;
+  summary: string;
+  experience: OptimizedCVSection[];
+  education: OptimizedCVSection[];
+  skills: string[];
+  certifications: string[];
+  estimated_score: number;
+}
+
+type ApplicationStatus = "saved" | "applied" | "interview" | "offer" | "rejected";
+
+interface ApplicationCreate {
+  company_name: string;
+  position: string;
+  status: ApplicationStatus;
+  job_url?: string;
+  cv_analysis_id?: string;
+  cover_letter_id?: string;
+  notes?: string;
+}
+
+interface ApplicationResponse {
+  id: string;
+  user_id: string;
+  company_name: string;
+  position: string;
+  status: ApplicationStatus;
+  job_url: string | null;
+  cv_analysis_id: string | null;
+  cover_letter_id: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 interface SubscriptionStatus {
   plan: "free" | "premium";
   status: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
@@ -272,13 +422,20 @@ interface PortalSessionResponse {
 export { ApiError };
 export type {
   UserProfile,
+  UserStats,
+  CompletenessStatus,
   CVAnalysisResult,
   CVAnalysisPreview,
   KeywordMatch,
   CVSection,
+  OptimizedCV,
+  OptimizedCVSection,
   CoverLetterRequest,
   CoverLetterResponse,
   CoverLetterListItem,
+  ApplicationCreate,
+  ApplicationResponse,
+  ApplicationStatus,
   SubscriptionStatus,
   PlanStatus,
 };
